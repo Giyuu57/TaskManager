@@ -1,30 +1,972 @@
-import { Switch, Route } from "wouter";
-import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import NotFound from "@/pages/not-found";
+// @ts-nocheck
+import React, { useState, useEffect } from 'react';
+import { Calendar, CheckCircle2, Circle, Plus, X, Star, TrendingUp, Flame, Moon, Sun, ChevronLeft, ChevronRight, Edit2, Trash2, Book, Target, Smile, Meh, Frown, Zap, Award, BarChart3, Search, Bell, Download, Upload } from 'lucide-react';
 
-function Router() {
-  return (
-    <Switch>
-      {/* Add pages below */}
-      {/* <Route path="/" component={Home}/> */}
-      {/* Fallback to 404 */}
-      <Route component={NotFound} />
-    </Switch>
-  );
-}
+const App = () => {
+  const [currentView, setCurrentView] = useState('calendar');
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [darkMode, setDarkMode] = useState(false);
+  const [tasks, setTasks] = useState({});
+  const [importantDates, setImportantDates] = useState(new Set());
+  const [customTasks, setCustomTasks] = useState({});
+  const [editingTask, setEditingTask] = useState(null);
+  const [notes, setNotes] = useState({});
+  const [goals, setGoals] = useState([]);
+  const [habits, setHabits] = useState([]);
+  const [showStats, setShowStats] = useState(false);
+  const [weekView, setWeekView] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [reminders, setReminders] = useState({});
+  const [mood, setMood] = useState({});
 
-function App() {
+  const defaultTasks = [
+    'Wake up at 6 AM',
+    'Exercise',
+    'Pray',
+    'Study college',
+    'Written work',
+    'Read book',
+    'Gym',
+    'Proper diet',
+    'Study',
+    'Work'
+  ];
+
+  useEffect(() => {
+    const savedTasks = localStorage.getItem('tasks');
+    const savedImportant = localStorage.getItem('importantDates');
+    const savedCustom = localStorage.getItem('customTasks');
+    const savedDarkMode = localStorage.getItem('darkMode');
+    const savedNotes = localStorage.getItem('notes');
+    const savedGoals = localStorage.getItem('goals');
+    const savedHabits = localStorage.getItem('habits');
+    const savedReminders = localStorage.getItem('reminders');
+    const savedMood = localStorage.getItem('mood');
+    
+    if (savedTasks) setTasks(JSON.parse(savedTasks));
+    if (savedImportant) setImportantDates(new Set(JSON.parse(savedImportant)));
+    if (savedCustom) setCustomTasks(JSON.parse(savedCustom));
+    if (savedDarkMode) setDarkMode(JSON.parse(savedDarkMode));
+    if (savedNotes) setNotes(JSON.parse(savedNotes));
+    if (savedGoals) setGoals(JSON.parse(savedGoals));
+    if (savedHabits) setHabits(JSON.parse(savedHabits));
+    if (savedReminders) setReminders(JSON.parse(savedReminders));
+    if (savedMood) setMood(JSON.parse(savedMood));
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+  }, [tasks]);
+
+  useEffect(() => {
+    localStorage.setItem('importantDates', JSON.stringify([...importantDates]));
+  }, [importantDates]);
+
+  useEffect(() => {
+    localStorage.setItem('customTasks', JSON.stringify(customTasks));
+  }, [customTasks]);
+
+  useEffect(() => {
+    localStorage.setItem('darkMode', JSON.stringify(darkMode));
+  }, [darkMode]);
+
+  useEffect(() => {
+    localStorage.setItem('notes', JSON.stringify(notes));
+  }, [notes]);
+
+  useEffect(() => {
+    localStorage.setItem('goals', JSON.stringify(goals));
+  }, [goals]);
+
+  useEffect(() => {
+    localStorage.setItem('habits', JSON.stringify(habits));
+  }, [habits]);
+
+  useEffect(() => {
+    localStorage.setItem('reminders', JSON.stringify(reminders));
+  }, [reminders]);
+
+  useEffect(() => {
+    localStorage.setItem('mood', JSON.stringify(mood));
+  }, [mood]);
+
+  const formatDate = (date) => {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
+
+  const getDaysInMonth = (date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+    
+    return { daysInMonth, startingDayOfWeek };
+  };
+
+  const toggleTask = (dateStr, taskIndex) => {
+    setTasks(prev => {
+      const dateTasks = prev[dateStr] || {};
+      return {
+        ...prev,
+        [dateStr]: {
+          ...dateTasks,
+          [taskIndex]: !dateTasks[taskIndex]
+        }
+      };
+    });
+  };
+
+  const toggleImportant = (dateStr) => {
+    setImportantDates(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(dateStr)) {
+        newSet.delete(dateStr);
+      } else {
+        newSet.add(dateStr);
+      }
+      return newSet;
+    });
+  };
+
+  const addCustomTask = (dateStr, taskText) => {
+    setCustomTasks(prev => ({
+      ...prev,
+      [dateStr]: [...(prev[dateStr] || []), { text: taskText, completed: false, id: Date.now() }]
+    }));
+  };
+
+  const toggleCustomTask = (dateStr, taskId) => {
+    setCustomTasks(prev => ({
+      ...prev,
+      [dateStr]: prev[dateStr].map(task => 
+        task.id === taskId ? { ...task, completed: !task.completed } : task
+      )
+    }));
+  };
+
+  const deleteCustomTask = (dateStr, taskId) => {
+    setCustomTasks(prev => ({
+      ...prev,
+      [dateStr]: prev[dateStr].filter(task => task.id !== taskId)
+    }));
+  };
+
+  const editCustomTask = (dateStr, taskId, newText) => {
+    setCustomTasks(prev => ({
+      ...prev,
+      [dateStr]: prev[dateStr].map(task => 
+        task.id === taskId ? { ...task, text: newText } : task
+      )
+    }));
+  };
+
+  const getProgress = (dateStr) => {
+    const dateTasks = tasks[dateStr] || {};
+    const completedDefault = Object.keys(dateTasks).filter(k => dateTasks[k]).length;
+    const dateCustom = customTasks[dateStr] || [];
+    const completedCustom = dateCustom.filter(t => t.completed).length;
+    const total = defaultTasks.length + dateCustom.length;
+    const completed = completedDefault + completedCustom;
+    return { completed, total };
+  };
+
+  const getStreak = () => {
+    let streak = 0;
+    const today = new Date();
+    for (let i = 0; i < 365; i++) {
+      const checkDate = new Date(today);
+      checkDate.setDate(today.getDate() - i);
+      const dateStr = formatDate(checkDate);
+      const { completed, total } = getProgress(dateStr);
+      if (completed === total && total > 0) {
+        streak++;
+      } else if (i > 0) {
+        break;
+      }
+    }
+    return streak;
+  };
+
+  const exportData = () => {
+    const data = {
+      tasks,
+      importantDates: [...importantDates],
+      customTasks,
+      notes,
+      goals,
+      habits,
+      reminders,
+      mood,
+      exportDate: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `taskflow-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+  };
+
+  const importData = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (data.tasks) setTasks(data.tasks);
+          if (data.importantDates) setImportantDates(new Set(data.importantDates));
+          if (data.customTasks) setCustomTasks(data.customTasks);
+          if (data.notes) setNotes(data.notes);
+          if (data.goals) setGoals(data.goals);
+          if (data.habits) setHabits(data.habits);
+          if (data.reminders) setReminders(data.reminders);
+          if (data.mood) setMood(data.mood);
+          alert('Data imported successfully!');
+        } catch (error) {
+          alert('Error importing data. Please check the file format.');
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  const CalendarView = () => {
+    const { daysInMonth, startingDayOfWeek } = getDaysInMonth(currentMonth);
+    const days = [];
+    
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(<div key={`empty-${i}`} className="aspect-square" />);
+    }
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+      const dateStr = formatDate(date);
+      const isImportant = importantDates.has(dateStr);
+      const { completed, total } = getProgress(dateStr);
+      const progress = total > 0 ? (completed / total) * 100 : 0;
+      const dayMood = mood[dateStr];
+      const hasReminder = reminders[dateStr];
+      
+      days.push(
+        <div
+          key={day}
+          onClick={() => {
+            setSelectedDate(dateStr);
+            setCurrentView('day');
+          }}
+          className={`aspect-square p-2 rounded-xl cursor-pointer transition-all duration-300 hover:scale-105 ${
+            darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:bg-gray-50'
+          } shadow-lg hover:shadow-xl ${isImportant ? 'ring-2 ring-yellow-400' : ''} relative`}
+        >
+          <div className="flex flex-col h-full">
+            <div className="flex justify-between items-start mb-1">
+              <span className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>{day}</span>
+              <div className="flex gap-1">
+                {isImportant && <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />}
+                {hasReminder && <Bell className="w-3 h-3 text-blue-400" />}
+              </div>
+            </div>
+            {dayMood && (
+              <div className="mb-1">
+                {dayMood === 'happy' && <Smile className="w-4 h-4 text-green-500" />}
+                {dayMood === 'neutral' && <Meh className="w-4 h-4 text-yellow-500" />}
+                {dayMood === 'sad' && <Frown className="w-4 h-4 text-red-500" />}
+              </div>
+            )}
+            {total > 0 && (
+              <div className="mt-auto">
+                <div className={`w-full h-1.5 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} overflow-hidden`}>
+                  <div 
+                    className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <span className="text-xs mt-1 opacity-70">{completed}/{total}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="max-w-6xl mx-auto p-6">
+        <div className="mb-6 flex flex-wrap gap-4 items-center justify-between">
+          <div className="flex items-center gap-4">
+            <input
+              type="text"
+              placeholder="Search tasks..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-md`}
+            />
+            <Search className="w-5 h-5 opacity-50" />
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowStats(!showStats)}
+              className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:bg-gray-50'} shadow-md`}
+            >
+              <BarChart3 className="w-5 h-5" />
+            </button>
+            <button
+              onClick={exportData}
+              className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:bg-gray-50'} shadow-md`}
+            >
+              <Download className="w-5 h-5" />
+            </button>
+            <label className={`px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:bg-gray-50'} shadow-md cursor-pointer`}>
+              <Upload className="w-5 h-5" />
+              <input type="file" accept=".json" onChange={importData} className="hidden" />
+            </label>
+          </div>
+        </div>
+
+        {showStats && (
+          <div className={`rounded-2xl p-6 mb-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-xl`}>
+            <h3 className="text-xl font-bold mb-4">Quick Stats</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-blue-500">{Object.keys(tasks).length}</div>
+                <div className="text-sm opacity-70">Days Tracked</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-green-500">{importantDates.size}</div>
+                <div className="text-sm opacity-70">Important Days</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-purple-500">{goals.length}</div>
+                <div className="text-sm opacity-70">Active Goals</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-orange-500">{getStreak()}</div>
+                <div className="text-sm opacity-70">Day Streak</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex justify-between items-center mb-8">
+          <button
+            onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
+            className={`p-2 rounded-lg ${darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+          <h2 className="text-3xl font-bold">
+            {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          </h2>
+          <button
+            onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
+            className={`p-2 rounded-lg ${darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
+          >
+            <ChevronRight className="w-6 h-6" />
+          </button>
+        </div>
+        
+        <div className="grid grid-cols-7 gap-2 mb-4">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+            <div key={day} className="text-center font-semibold text-sm opacity-70 py-2">
+              {day}
+            </div>
+          ))}
+        </div>
+        
+        <div className="grid grid-cols-7 gap-2">
+          {days}
+        </div>
+      </div>
+    );
+  };
+
+  const DayView = () => {
+    const [newTask, setNewTask] = useState('');
+    const [noteText, setNoteText] = useState(notes[selectedDate] || '');
+    const [reminderText, setReminderText] = useState(reminders[selectedDate] || '');
+    const dateTasks = tasks[selectedDate] || {};
+    const dateCustom = customTasks[selectedDate] || [];
+    const { completed, total } = getProgress(selectedDate);
+    const progress = total > 0 ? (completed / total) * 100 : 0;
+    const dayMood = mood[selectedDate];
+
+    const saveMood = (moodType) => {
+      setMood(prev => ({ ...prev, [selectedDate]: moodType }));
+    };
+
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <button
+          onClick={() => setCurrentView('calendar')}
+          className={`mb-6 px-4 py-2 rounded-lg ${darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-100 hover:bg-gray-200'} transition-colors`}
+        >
+          ← Back to Calendar
+        </button>
+
+        <div className={`rounded-2xl p-8 mb-6 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-xl`}>
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h2 className="text-3xl font-bold mb-2">
+                {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })}
+              </h2>
+              <p className="opacity-70">Stay focused and achieve your goals!</p>
+            </div>
+            <div className="flex gap-2 items-center">
+              <button
+                onClick={() => toggleImportant(selectedDate)}
+                className="p-2 hover:scale-110 transition-transform"
+              >
+                <Star 
+                  className={`w-8 h-8 ${importantDates.has(selectedDate) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-400'}`}
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* Mood Tracker */}
+          <div className="mb-6">
+            <h3 className="font-semibold mb-3 flex items-center gap-2">
+              <Zap className="w-5 h-5" /> How are you feeling today?
+            </h3>
+            <div className="flex gap-4">
+              <button
+                onClick={() => saveMood('happy')}
+                className={`p-3 rounded-xl transition-all ${
+                  dayMood === 'happy' 
+                    ? 'bg-green-500 text-white scale-110' 
+                    : darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'
+                }`}
+              >
+                <Smile className="w-6 h-6" />
+              </button>
+              <button
+                onClick={() => saveMood('neutral')}
+                className={`p-3 rounded-xl transition-all ${
+                  dayMood === 'neutral' 
+                    ? 'bg-yellow-500 text-white scale-110' 
+                    : darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'
+                }`}
+              >
+                <Meh className="w-6 h-6" />
+              </button>
+              <button
+                onClick={() => saveMood('sad')}
+                className={`p-3 rounded-xl transition-all ${
+                  dayMood === 'sad' 
+                    ? 'bg-red-500 text-white scale-110' 
+                    : darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'
+                }`}
+              >
+                <Frown className="w-6 h-6" />
+              </button>
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <div className="flex justify-between items-center mb-2">
+              <span className="font-semibold">Daily Progress</span>
+              <span className="text-sm">{completed}/{total} tasks</span>
+            </div>
+            <div className={`w-full h-3 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} overflow-hidden`}>
+              <div 
+                className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-500"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3 mb-6">
+            {defaultTasks.map((task, idx) => (
+              <div
+                key={idx}
+                onClick={() => toggleTask(selectedDate, idx)}
+                className={`flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-all ${
+                  dateTasks[idx] 
+                    ? darkMode ? 'bg-green-900/30' : 'bg-green-50' 
+                    : darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-50 hover:bg-gray-100'
+                }`}
+              >
+                {dateTasks[idx] ? (
+                  <CheckCircle2 className="w-6 h-6 text-green-500 flex-shrink-0" />
+                ) : (
+                  <Circle className="w-6 h-6 text-gray-400 flex-shrink-0" />
+                )}
+                <span className={`flex-1 ${dateTasks[idx] ? 'line-through opacity-70' : ''}`}>
+                  {task}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {dateCustom.length > 0 && (
+            <div className="space-y-3 mb-6">
+              <h3 className="font-semibold text-lg mb-3">Custom Tasks</h3>
+              {dateCustom.map(task => (
+                <div
+                  key={task.id}
+                  className={`flex items-center gap-3 p-4 rounded-xl transition-all ${
+                    task.completed 
+                      ? darkMode ? 'bg-blue-900/30' : 'bg-blue-50' 
+                      : darkMode ? 'bg-gray-700' : 'bg-gray-50'
+                  }`}
+                >
+                  <button onClick={() => toggleCustomTask(selectedDate, task.id)}>
+                    {task.completed ? (
+                      <CheckCircle2 className="w-6 h-6 text-blue-500 flex-shrink-0" />
+                    ) : (
+                      <Circle className="w-6 h-6 text-gray-400 flex-shrink-0" />
+                    )}
+                  </button>
+                  {editingTask === task.id ? (
+                    <input
+                      type="text"
+                      defaultValue={task.text}
+                      onBlur={(e) => {
+                        editCustomTask(selectedDate, task.id, e.target.value);
+                        setEditingTask(null);
+                      }}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          editCustomTask(selectedDate, task.id, e.target.value);
+                          setEditingTask(null);
+                        }
+                      }}
+                      className={`flex-1 px-2 py-1 rounded ${darkMode ? 'bg-gray-600' : 'bg-white'} outline-none`}
+                      autoFocus
+                    />
+                  ) : (
+                    <span className={`flex-1 ${task.completed ? 'line-through opacity-70' : ''}`}>
+                      {task.text}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => setEditingTask(task.id)}
+                    className="p-1 hover:bg-gray-500/20 rounded"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => deleteCustomTask(selectedDate, task.id)}
+                    className="p-1 hover:bg-red-500/20 rounded"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-500" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-2 mb-6">
+            <input
+              type="text"
+              value={newTask}
+              onChange={(e) => setNewTask(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && newTask.trim()) {
+                  addCustomTask(selectedDate, newTask);
+                  setNewTask('');
+                }
+              }}
+              placeholder="Add a custom task..."
+              className={`flex-1 px-4 py-3 rounded-xl ${
+                darkMode ? 'bg-gray-700 text-white' : 'bg-gray-100'
+              } outline-none`}
+            />
+            <button
+              onClick={() => {
+                if (newTask.trim()) {
+                  addCustomTask(selectedDate, newTask);
+                  setNewTask('');
+                }
+              }}
+              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:shadow-lg transition-all"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Daily Notes */}
+          <div className="mb-6">
+            <h3 className="font-semibold mb-3 flex items-center gap-2">
+              <Book className="w-5 h-5" /> Daily Notes
+            </h3>
+            <textarea
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              onBlur={() => setNotes(prev => ({ ...prev, [selectedDate]: noteText }))}
+              placeholder="Write your thoughts, reflections, or anything memorable about today..."
+              className={`w-full px-4 py-3 rounded-xl ${
+                darkMode ? 'bg-gray-700 text-white' : 'bg-gray-100'
+              } outline-none min-h-[100px] resize-none`}
+            />
+          </div>
+
+          {/* Reminder */}
+          <div>
+            <h3 className="font-semibold mb-3 flex items-center gap-2">
+              <Bell className="w-5 h-5" /> Reminder
+            </h3>
+            <input
+              type="text"
+              value={reminderText}
+              onChange={(e) => setReminderText(e.target.value)}
+              onBlur={() => setReminders(prev => ({ ...prev, [selectedDate]: reminderText }))}
+              placeholder="Set a reminder for this day..."
+              className={`w-full px-4 py-3 rounded-xl ${
+                darkMode ? 'bg-gray-700 text-white' : 'bg-gray-100'
+              } outline-none`}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const TrackerView = () => {
+    const [newGoal, setNewGoal] = useState('');
+    const [newHabit, setNewHabit] = useState('');
+    const streak = getStreak();
+    const quotes = [
+      "The only way to do great work is to love what you do.",
+      "Success is not final, failure is not fatal: it is the courage to continue that counts.",
+      "Believe you can and you're halfway there.",
+      "Don't watch the clock; do what it does. Keep going.",
+      "The future depends on what you do today.",
+      "Start where you are. Use what you have. Do what you can.",
+      "It always seems impossible until it's done.",
+      "The secret of getting ahead is getting started."
+    ];
+    const quote = quotes[new Date().getDate() % quotes.length];
+
+    const last7Days = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateStr = formatDate(date);
+      const { completed, total } = getProgress(dateStr);
+      last7Days.push({
+        day: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        progress: total > 0 ? (completed / total) * 100 : 0
+      });
+    }
+
+    const last30Days = [];
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateStr = formatDate(date);
+      const { completed, total } = getProgress(dateStr);
+      last30Days.push({
+        date: dateStr,
+        progress: total > 0 ? (completed / total) * 100 : 0
+      });
+    }
+
+    const addGoal = () => {
+      if (newGoal.trim()) {
+        setGoals([...goals, { id: Date.now(), text: newGoal, completed: false }]);
+        setNewGoal('');
+      }
+    };
+
+    const toggleGoal = (id) => {
+      setGoals(goals.map(g => g.id === id ? { ...g, completed: !g.completed } : g));
+    };
+
+    const deleteGoal = (id) => {
+      setGoals(goals.filter(g => g.id !== id));
+    };
+
+    const addHabit = () => {
+      if (newHabit.trim()) {
+        setHabits([...habits, { id: Date.now(), name: newHabit, days: {} }]);
+        setNewHabit('');
+      }
+    };
+
+    const toggleHabitDay = (habitId, dateStr) => {
+      setHabits(habits.map(h => {
+        if (h.id === habitId) {
+          const newDays = { ...h.days };
+          newDays[dateStr] = !newDays[dateStr];
+          return { ...h, days: newDays };
+        }
+        return h;
+      }));
+    };
+
+    const deleteHabit = (id) => {
+      setHabits(habits.filter(h => h.id !== id));
+    };
+
+    const totalTasksCompleted = Object.values(tasks).reduce((acc, dateTasks) => {
+      return acc + Object.values(dateTasks).filter(Boolean).length;
+    }, 0);
+
+    const moodStats = Object.values(mood).reduce((acc, m) => {
+      acc[m] = (acc[m] || 0) + 1;
+      return acc;
+    }, {});
+
+    return (
+      <div className="max-w-6xl mx-auto p-6">
+        <h2 className="text-4xl font-bold mb-8">Self Improvement Tracker</h2>
+
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
+          <div className={`rounded-2xl p-8 ${darkMode ? 'bg-gradient-to-br from-orange-900/50 to-red-900/50' : 'bg-gradient-to-br from-orange-100 to-red-100'} shadow-xl`}>
+            <div className="flex items-center gap-4 mb-4">
+              <Flame className="w-12 h-12 text-orange-500" />
+              <div>
+                <h3 className="text-2xl font-bold">{streak} Days</h3>
+                <p className="opacity-70">Current Streak</p>
+              </div>
+            </div>
+          </div>
+
+          <div className={`rounded-2xl p-8 ${darkMode ? 'bg-gradient-to-br from-blue-900/50 to-purple-900/50' : 'bg-gradient-to-br from-blue-100 to-purple-100'} shadow-xl`}>
+            <div className="flex items-center gap-4 mb-4">
+              <Award className="w-12 h-12 text-blue-500" />
+              <div>
+                <h3 className="text-2xl font-bold">{totalTasksCompleted}</h3>
+                <p className="opacity-70">Tasks Completed</p>
+              </div>
+            </div>
+          </div>
+
+          <div className={`rounded-2xl p-8 ${darkMode ? 'bg-gradient-to-br from-green-900/50 to-teal-900/50' : 'bg-gradient-to-br from-green-100 to-teal-100'} shadow-xl`}>
+            <div className="flex items-center gap-4 mb-4">
+              <Target className="w-12 h-12 text-green-500" />
+              <div>
+                <h3 className="text-2xl font-bold">{goals.filter(g => g.completed).length}/{goals.length}</h3>
+                <p className="opacity-70">Goals Achieved</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className={`rounded-2xl p-8 ${darkMode ? 'bg-gradient-to-br from-purple-900/50 to-pink-900/50' : 'bg-gradient-to-br from-purple-100 to-pink-100'} shadow-xl mb-8`}>
+          <TrendingUp className="w-8 h-8 text-purple-500 mb-4" />
+          <p className="text-lg italic">"{quote}"</p>
+        </div>
+
+        <div className={`rounded-2xl p-8 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-xl mb-8`}>
+          <h3 className="text-2xl font-bold mb-6">7-Day Progress</h3>
+          <div className="flex items-end justify-between gap-4 h-64">
+            {last7Days.map((day, idx) => (
+              <div key={idx} className="flex-1 flex flex-col items-center gap-2">
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-t-lg relative" style={{ height: '200px' }}>
+                  <div 
+                    className="absolute bottom-0 w-full bg-gradient-to-t from-blue-500 to-purple-500 rounded-t-lg transition-all duration-500"
+                    style={{ height: `${day.progress}%` }}
+                  />
+                </div>
+                <span className="text-sm font-semibold">{day.day}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Mood Overview */}
+        {Object.keys(moodStats).length > 0 && (
+          <div className={`rounded-2xl p-8 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-xl mb-8`}>
+            <h3 className="text-2xl font-bold mb-6">Mood Overview</h3>
+            <div className="flex gap-8 justify-center">
+              {moodStats.happy && (
+                <div className="text-center">
+                  <Smile className="w-12 h-12 text-green-500 mx-auto mb-2" />
+                  <div className="text-2xl font-bold">{moodStats.happy}</div>
+                  <div className="text-sm opacity-70">Happy Days</div>
+                </div>
+              )}
+              {moodStats.neutral && (
+                <div className="text-center">
+                  <Meh className="w-12 h-12 text-yellow-500 mx-auto mb-2" />
+                  <div className="text-2xl font-bold">{moodStats.neutral}</div>
+                  <div className="text-sm opacity-70">Neutral Days</div>
+                </div>
+              )}
+              {moodStats.sad && (
+                <div className="text-center">
+                  <Frown className="w-12 h-12 text-red-500 mx-auto mb-2" />
+                  <div className="text-2xl font-bold">{moodStats.sad}</div>
+                  <div className="text-sm opacity-70">Sad Days</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Goals Section */}
+        <div className={`rounded-2xl p-8 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-xl mb-8`}>
+          <h3 className="text-2xl font-bold mb-6 flex items-center gap-2">
+            <Target className="w-6 h-6" /> Personal Goals
+          </h3>
+          <div className="space-y-3 mb-4">
+            {goals.map(goal => (
+              <div
+                key={goal.id}
+                className={`flex items-center gap-3 p-4 rounded-xl transition-all ${
+                  goal.completed 
+                    ? darkMode ? 'bg-green-900/30' : 'bg-green-50' 
+                    : darkMode ? 'bg-gray-700' : 'bg-gray-50'
+                }`}
+              >
+                <button onClick={() => toggleGoal(goal.id)}>
+                  {goal.completed ? (
+                    <CheckCircle2 className="w-6 h-6 text-green-500" />
+                  ) : (
+                    <Circle className="w-6 h-6 text-gray-400" />
+                  )}
+                </button>
+                <span className={`flex-1 ${goal.completed ? 'line-through opacity-70' : ''}`}>
+                  {goal.text}
+                </span>
+                <button
+                  onClick={() => deleteGoal(goal.id)}
+                  className="p-1 hover:bg-red-500/20 rounded"
+                >
+                  <Trash2 className="w-4 h-4 text-red-500" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newGoal}
+              onChange={(e) => setNewGoal(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && addGoal()}
+              placeholder="Add a new goal..."
+              className={`flex-1 px-4 py-3 rounded-xl ${
+                darkMode ? 'bg-gray-700 text-white' : 'bg-gray-100'
+              } outline-none`}
+            />
+            <button
+              onClick={addGoal}
+              className="px-6 py-3 bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-xl hover:shadow-lg transition-all"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Habit Tracker */}
+        <div className={`rounded-2xl p-8 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-xl`}>
+          <h3 className="text-2xl font-bold mb-6 flex items-center gap-2">
+            <Zap className="w-6 h-6" /> Habit Tracker
+          </h3>
+          {habits.map(habit => {
+            const last7 = [];
+            for (let i = 6; i >= 0; i--) {
+              const date = new Date();
+              date.setDate(date.getDate() - i);
+              last7.push(formatDate(date));
+            }
+            return (
+              <div key={habit.id} className={`mb-4 p-4 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="font-semibold">{habit.name}</span>
+                  <button
+                    onClick={() => deleteHabit(habit.id)}
+                    className="p-1 hover:bg-red-500/20 rounded"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-500" />
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  {last7.map(date => (
+                    <button
+                      key={date}
+                      onClick={() => toggleHabitDay(habit.id, date)}
+                      className={`flex-1 aspect-square rounded-lg transition-all ${
+                        habit.days[date]
+                          ? 'bg-green-500 hover:bg-green-600'
+                          : darkMode ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-200 hover:bg-gray-300'
+                      }`}
+                    >
+                      <div className="text-xs">{new Date(date + 'T00:00:00').getDate()}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          <div className="flex gap-2 mt-4">
+            <input
+              type="text"
+              value={newHabit}
+              onChange={(e) => setNewHabit(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && addHabit()}
+              placeholder="Add a new habit to track..."
+              className={`flex-1 px-4 py-3 rounded-xl ${
+                darkMode ? 'bg-gray-700 text-white' : 'bg-gray-100'
+              } outline-none`}
+            />
+            <button
+              onClick={addHabit}
+              className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl hover:shadow-lg transition-all"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <div className={`min-h-screen transition-colors duration-300 ${
+      darkMode ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white' : 'bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 text-gray-800'
+    }`}>
+      <nav className={`sticky top-0 z-50 ${darkMode ? 'bg-gray-900/90' : 'bg-white/90'} backdrop-blur-lg shadow-lg`}>
+        <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <Calendar className="w-8 h-8 text-blue-500" />
+            <h1 className="text-2xl font-bold">TaskFlow</h1>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setCurrentView('calendar')}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                currentView === 'calendar' ? 'bg-blue-500 text-white' : darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'
+              }`}
+            >
+              Calendar
+            </button>
+            <button
+              onClick={() => setCurrentView('tracker')}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                currentView === 'tracker' ? 'bg-blue-500 text-white' : darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'
+              }`}
+            >
+              Tracker
+            </button>
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className={`p-2 rounded-lg ${darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
+            >
+              {darkMode ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />}
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      <main className="py-8">
+        {currentView === 'calendar' && <CalendarView />}
+        {currentView === 'day' && <DayView />}
+        {currentView === 'tracker' && <TrackerView />}
+      </main>
+    </div>
   );
-}
+};
 
 export default App;
